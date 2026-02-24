@@ -92,8 +92,8 @@ function App() {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const server = await api.get('/api/server/status');
-        const client = await api.get('/api/client/status');
+        const server = await api.get('/server/status');
+        const client = await api.get('/client/status');
         setServerStatus(server);
         setClientStatus(client);
       } catch (error) {
@@ -110,8 +110,8 @@ function App() {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const serverEvents = await api.get('/api/server/events?limit=50');
-        const clientEvents = await api.get('/api/client/events?limit=50');
+        const serverEvents = await api.get('/server/events?limit=50');
+        const clientEvents = await api.get('/client/events?limit=50');
         
         const allEvents = [
           ...(serverEvents.events || []).map(e => ({ ...e, source: 'server' })),
@@ -131,7 +131,7 @@ function App() {
   // Handlers
   const handleStartServer = async () => {
     try {
-      await api.post('/api/server/start', {
+      await api.post('/server/start', {
         host: '0.0.0.0',
         port: config.serverPort,
         packet_loss_rate: config.packetLossRate,
@@ -147,7 +147,7 @@ function App() {
   
   const handleStopServer = async () => {
     try {
-      await api.post('/api/server/stop');
+      await api.post('/server/stop');
       setServerStatus(prev => ({ ...prev, running: false }));
     } catch (error) {
       console.error('Failed to stop server:', error);
@@ -166,7 +166,7 @@ function App() {
     
     try {
       // Configure client
-      await api.post('/api/client/configure', {
+      await api.post('/client/configure', {
         server_host: config.serverHost,
         server_port: config.serverPort,
         protocol_mode: config.protocol,
@@ -191,7 +191,7 @@ function App() {
         }
       } else {
         // Demo transfer with random data
-        await api.post('/api/client/transfer/data', {
+        await api.post('/client/transfer/data', {
           filename: 'demo_data',
           protocol_mode: config.protocol,
           window_size: config.windowSize,
@@ -218,7 +218,7 @@ function App() {
     setCongestionHistory([]);
     
     try {
-      const result = await api.post('/api/demo/run', null, {
+      const result = await api.post('/demo/run', null, {
         protocol: config.protocol,
         window_size: config.windowSize,
         packet_loss: config.packetLossRate,
