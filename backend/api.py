@@ -20,7 +20,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
 # Add parent directory to path for imports
@@ -29,6 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from server import UDPServer
 from client import UDPClient, TransferState
 from packet import Packet
+from report import generate_transfer_report
 
 # FastAPI app
 app = FastAPI(
@@ -359,6 +360,116 @@ async def get_transfer(transfer_id: str):
         if transfer["id"] == transfer_id:
             return transfer
     raise HTTPException(status_code=404, detail="Transfer not found")
+
+
+@app.get("/api/report/download", tags=["Reports"])
+async def download_report(
+    filename: str = "transfer",
+    file_size: int = 0
+):
+    """Generate and download a detailed PDF transfer analysis report."""
+    global udp_server, udp_client
+    
+    # Get current stats
+    client_stats = {}
+    server_stats = {}
+    congestion_stats = {}
+    config = {
+        'protocol_mode': 'selective_repeat',
+        'window_size': 10,
+        'packet_loss_rate': 0.1,
+        'congestion_enabled': True
+    }
+    
+    if udp_client:
+        client_stats = udp_client.stats.to_dict() if hasattr(udp_client, 'stats') else {}
+        congestion_stats = udp_client.congestion.get_stats_summary() if hasattr(udp_client, 'congestion') else {}
+        config = {
+            'protocol_mode': udp_client.protocol_mode,
+            'window_size': udp_client.window_size,
+            'packet_loss_rate': udp_client.packet_loss_rate,
+            'congestion_enabled': udp_client.congestion.enabled if hasattr(udp_client, 'congestion') else True
+        }
+        if file_size == 0:
+            file_size = client_stats.get('bytes_sent', 0)
+    
+    if udp_server:
+        server_stats = udp_server.stats.to_dict() if hasattr(udp_server, 'stats') else {}
+    
+    # Generate PDF report
+    transfer_id = f"transfer_{int(time.time())}"
+    
+    try:
+        pdf_bytes = generate_transfer_report(
+            transfer_id=transfer_id,
+            filename=filename,
+            file_size=file_size,
+            protocol_mode=config['protocol_mode'],
+            window_size=config['window_size'],
+            packet_loss_rate=config['packet_loss_rate'],
+            congestion_enabled=config['congestion_enabled'],
+            client_stats=client_stats,
+            server_stats=server_stats,
+            congestion_stats=congestion_stats
+        )
+        
+        # Return PDF as downloadable file
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename=transfer_report_{transfer_id}.pdf"
+            }
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate report: {str(e)}")
+
+
+@app.post("/api/report/generate", tags=["Reports"])
+async def generate_report_from_data(
+    filename: str = "transfer",
+    file_size: int = 0,
+    protocol_mode: str = "selective_repeat",
+    window_size: int = 10,
+    packet_loss_rate: float = 0.1,
+    congestion_enabled: bool = True
+):
+    """Generate a report using provided or current transfer data."""
+    global udp_server, udp_client
+    
+    # Get current stats
+    client_stats = udp_client.stats.to_dict() if udp_client and hasattr(udp_client, 'stats') else {}
+    server_stats = udp_server.stats.to_dict() if udp_server and hasattr(udp_server, 'stats') else {}
+    congestion_stats = udp_client.congestion.get_stats_summary() if udp_client and hasattr(udp_client, 'congestion') else {}
+    
+    if file_size == 0:
+        file_size = client_stats.get('bytes_sent', 0)
+    
+    transfer_id = f"transfer_{int(time.time())}"
+    
+    try:
+        pdf_bytes = generate_transfer_report(
+            transfer_id=transfer_id,
+            filename=filename,
+            file_size=file_size,
+            protocol_mode=protocol_mode,
+            window_size=window_size,
+            packet_loss_rate=packet_loss_rate,
+            congestion_enabled=congestion_enabled,
+            client_stats=client_stats,
+            server_stats=server_stats,
+            congestion_stats=congestion_stats
+        )
+        
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename=transfer_report_{transfer_id}.pdf"
+            }
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate report: {str(e)}")
 
 
 # ============ Files ============

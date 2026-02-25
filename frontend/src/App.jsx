@@ -233,6 +233,34 @@ function App() {
     }
   };
   
+  const handleDownloadReport = async () => {
+    try {
+      const params = new URLSearchParams({
+        filename: selectedFile?.name || 'demo_data',
+        file_size: selectedFile?.size || clientStatus?.stats?.bytes_sent || 50000
+      });
+      
+      const response = await fetch(`/api/report/download?${params}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate report');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `transfer_report_${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Failed to download report:', error);
+      alert('Failed to download report: ' + error.message);
+    }
+  };
+  
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -270,11 +298,13 @@ function App() {
               config={config}
               setConfig={setConfig}
               serverStatus={serverStatus}
+              clientStatus={clientStatus}
               transferring={transferring}
               onStartServer={handleStartServer}
               onStopServer={handleStopServer}
               onStartTransfer={handleStartTransfer}
               onRunDemo={handleRunDemo}
+              onDownloadReport={handleDownloadReport}
               selectedFile={selectedFile}
               setSelectedFile={setSelectedFile}
             />

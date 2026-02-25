@@ -1,15 +1,17 @@
 import React from 'react';
-import { Play, Square, Upload, Server, Settings, RefreshCw } from 'lucide-react';
+import { Play, Square, Upload, Server, Settings, RefreshCw, FileDown } from 'lucide-react';
 
 function Controls({
   config,
   setConfig,
   serverStatus,
+  clientStatus,
   transferring,
   onStartServer,
   onStopServer,
   onStartTransfer,
   onRunDemo,
+  onDownloadReport,
   selectedFile,
   setSelectedFile
 }) {
@@ -223,6 +225,15 @@ function Controls({
           >
             <Play className="h-4 w-4 mr-2" />
             Run Demo
+          </button>
+          
+          <button
+            onClick={onDownloadReport}
+            disabled={transferring || !clientStatus?.stats?.packets_sent}
+            className="w-full flex items-center justify-center px-4 py-2 rounded-md text-sm font-medium bg-emerald-500 hover:bg-emerald-600 text-white transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
+            <FileDown className="h-4 w-4 mr-2" />
+            Download Report
           </button>
         </div>
       </div>
